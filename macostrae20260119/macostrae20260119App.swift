@@ -41,5 +41,20 @@ struct macostrae20260119App: App {
                     }
                 }
         }
+        
+        MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
+            Button("Open Subscriptions") {
+                NSApp.activate(ignoringOtherApps: true)
+                // If window is closed, this might need more logic in some SwiftUI versions, 
+                // but usually activate works if not LSUIElement=YES
+                if let window = NSApp.windows.first {
+                    window.makeKeyAndOrderFront(nil)
+                }
+            }
+            Divider()
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 }

@@ -48,7 +48,14 @@ class NotificationManager {
                 
                 let content = UNMutableNotificationContent()
                 content.title = "Subscription Expiring Soon"
-                content.body = "\(sub.name) is renewing on \(sub.nextdate.prefix(10)) (in \(dayOffset) days)"
+                
+                // Format date nicely
+                let displayFormatter = DateFormatter()
+                displayFormatter.dateStyle = .medium
+                displayFormatter.timeStyle = .none
+                let dateString = displayFormatter.string(from: validDate)
+                
+                content.body = "\(sub.name) is renewing on \(dateString) (in \(dayOffset) days)"
                 content.sound = .default
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
