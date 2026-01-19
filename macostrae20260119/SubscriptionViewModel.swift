@@ -1,8 +1,9 @@
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
-class SubscriptionViewModel: ObservableObject {
+final class SubscriptionViewModel: ObservableObject {
     @Published var subscriptions: [Subscription] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -15,8 +16,14 @@ class SubscriptionViewModel: ObservableObject {
             let fetched = try await AppwriteService.shared.fetchSubscriptions()
             // Sort by nextdate (near to far)
             self.subscriptions = fetched.sorted { sub1, sub2 in
-                // Simple string comparison works for ISO8601, but let's be safe if format varies
-                return sub1.nextdate < sub2.nextdate
+                let isoFormatter = ISO8601DateFormatter()
+                isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let fallbackFormatter = ISO8601DateFormatter()
+                
+                let date1 = isoFormatter.date(from: sub1.nextdate) ?? fallbackFormatter.date(from: sub1.nextdate) ?? Date.distantFuture
+                let date2 = isoFormatter.date(from: sub2.nextdate) ?? fallbackFormatter.date(from: sub2.nextdate) ?? Date.distantFuture
+                
+                return date1 < date2
             }
         } catch {
             self.errorMessage = "Failed to load: \(error.localizedDescription)"
