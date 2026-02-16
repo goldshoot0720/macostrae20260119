@@ -9,7 +9,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     // Show notification even when app is in foreground
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        print("🔔 willPresent called for: \(notification.request.content.title) - \(notification.request.content.body)")
+        completionHandler([.banner, .list, .sound])
     }
     
     // Keep app running after last window closed

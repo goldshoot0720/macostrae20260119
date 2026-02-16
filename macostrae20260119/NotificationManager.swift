@@ -4,13 +4,18 @@ import UserNotifications
 class NotificationManager {
     static let shared = NotificationManager()
     
-    func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+    func requestAuthorization() async -> Bool {
+        do {
+            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
             if granted {
-                print("Notification permission granted")
-            } else if let error = error {
-                print("Notification permission error: \(error.localizedDescription)")
+                print("✅ Notification permission granted")
+            } else {
+                print("❌ Notification permission denied")
             }
+            return granted
+        } catch {
+            print("❌ Notification permission error: \(error.localizedDescription)")
+            return false
         }
     }
     
@@ -23,9 +28,10 @@ class NotificationManager {
         let fallbackFormatter = ISO8601DateFormatter()
         
         for sub in subscriptions {
-            var date = dateFormatter.date(from: sub.nextdate)
+            guard let nextdate = sub.nextdate else { continue }
+            var date = dateFormatter.date(from: nextdate)
             if date == nil {
-                date = fallbackFormatter.date(from: sub.nextdate)
+                date = fallbackFormatter.date(from: nextdate)
             }
             
             guard let validDate = date else { continue }
@@ -74,8 +80,9 @@ class NotificationManager {
              dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
              let fallbackFormatter = ISO8601DateFormatter()
             
-             var date = dateFormatter.date(from: sub.nextdate)
-             if date == nil { date = fallbackFormatter.date(from: sub.nextdate) }
+              guard let nextdate = sub.nextdate else { return false }
+              var date = dateFormatter.date(from: nextdate)
+              if date == nil { date = fallbackFormatter.date(from: nextdate) }
              guard let validDate = date else { return false }
             
              let now = Date()
@@ -84,7 +91,9 @@ class NotificationManager {
              return diff > 0 && diff <= (3 * 24 * 3600)
         }
         
-        for sub in upcoming {
+        print("📋 Found \(upcoming.count) upcoming subscriptions within 3 days")
+        
+        for (index, sub) in upcoming.enumerated() {
             let content = UNMutableNotificationContent()
             content.title = "Subscription Expiring Soon"
             
@@ -92,9 +101,9 @@ class NotificationManager {
             let dateFormatter = ISO8601DateFormatter()
             dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let fallbackFormatter = ISO8601DateFormatter()
-            let date = dateFormatter.date(from: sub.nextdate) ?? fallbackFormatter.date(from: sub.nextdate)
+            let date = dateFormatter.date(from: sub.nextdate ?? "") ?? fallbackFormatter.date(from: sub.nextdate ?? "")
             
-            var dateString = String(sub.nextdate.prefix(10))
+            var dateString = String((sub.nextdate ?? "N/A").prefix(10))
             var daysString = ""
             
             if let validDate = date {
@@ -112,14 +121,17 @@ class NotificationManager {
             content.body = "\(sub.name) is renewing on \(dateString)\(daysString)"
             content.sound = .default
             
-            // Trigger immediately (after 1 sec)
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            // Stagger notifications so they don't overwrite each other
+            let delay = TimeInterval(1 + index * 2)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
             // Use a unique ID so we don't overwrite if multiple pop at once
             let request = UNNotificationRequest(identifier: "immediate_\(sub.id)", content: content, trigger: trigger)
             
             UNUserNotificationCenter.current().add(request) { error in
                 if let error = error {
-                    print("Error scheduling immediate notification: \(error.localizedDescription)")
+                    print("❌ Error scheduling immediate notification: \(error.localizedDescription)")
+                } else {
+                    print("✅ Scheduled notification for: \(sub.name) in \(delay)s")
                 }
             }
         }

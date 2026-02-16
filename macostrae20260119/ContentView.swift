@@ -3,6 +3,8 @@ import UserNotifications
 
 struct ContentView: View {
     @StateObject private var viewModel = SubscriptionViewModel()
+    @State private var showUpcomingAlert = false
+    @State private var upcomingAlertMessage = ""
     
     var body: some View {
         NavigationStack {
@@ -32,16 +34,67 @@ struct ContentView: View {
                 }
             }
         }
+        .alert("⚠️ 訂閱即將到期", isPresented: $showUpcomingAlert) {
+            Button("OK") { }
+        } message: {
+            Text(upcomingAlertMessage)
+        }
         .onAppear {
-            NotificationManager.shared.requestAuthorization()
             Task {
+                // First, request permission and wait for it
+                let granted = await NotificationManager.shared.requestAuthorization()
+                
+                // Load subscriptions
                 await viewModel.loadSubscriptions()
-                // After loading, check for immediate notifications (Step 6)
-                NotificationManager.shared.checkAndNotifyUpcoming(subscriptions: viewModel.subscriptions)
-                // Schedule future notifications (Step 5)
-                NotificationManager.shared.scheduleNotifications(for: viewModel.subscriptions)
+                
+                // Get upcoming subscriptions within 3 days
+                let upcoming = viewModel.getUpcomingExpirations()
+                
+                // Show in-app alert for upcoming subscriptions
+                if !upcoming.isEmpty {
+                    let lines = upcoming.map { sub -> String in
+                        let dateStr = formatDate(sub.nextdate)
+                        let daysLeft = daysUntil(sub.nextdate)
+                        return "• \(sub.name) — \(dateStr) (\(daysLeft))"
+                    }
+                    upcomingAlertMessage = lines.joined(separator: "\n")
+                    showUpcomingAlert = true
+                }
+                
+                // Also schedule system notifications if permission was granted
+                if granted {
+                    NotificationManager.shared.checkAndNotifyUpcoming(subscriptions: viewModel.subscriptions)
+                    NotificationManager.shared.scheduleNotifications(for: viewModel.subscriptions)
+                }
             }
         }
+    }
+    
+    private func formatDate(_ dateStr: String?) -> String {
+        guard let dateStr = dateStr else { return "N/A" }
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallbackFormatter = ISO8601DateFormatter()
+        if let date = isoFormatter.date(from: dateStr) ?? fallbackFormatter.date(from: dateStr) {
+            let df = DateFormatter()
+            df.dateStyle = .medium
+            return df.string(from: date)
+        }
+        return dateStr
+    }
+    
+    private func daysUntil(_ dateStr: String?) -> String {
+        guard let dateStr = dateStr else { return "" }
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallbackFormatter = ISO8601DateFormatter()
+        if let date = isoFormatter.date(from: dateStr) ?? fallbackFormatter.date(from: dateStr) {
+            let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: date)).day ?? 0
+            if days == 0 { return "今天" }
+            if days == 1 { return "明天" }
+            return "\(days) 天後"
+        }
+        return ""
     }
 }
 
@@ -49,18 +102,19 @@ struct SubscriptionCard: View {
     let subscription: Subscription
     
     var formattedDate: String {
+        guard let nextdate = subscription.nextdate else { return "N/A" }
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let fallbackFormatter = ISO8601DateFormatter()
         
-        let date = isoFormatter.date(from: subscription.nextdate) ?? fallbackFormatter.date(from: subscription.nextdate)
+        let date = isoFormatter.date(from: nextdate) ?? fallbackFormatter.date(from: nextdate)
         
         if let date = date {
             let displayFormatter = DateFormatter()
             displayFormatter.dateStyle = .medium
             return displayFormatter.string(from: date)
         }
-        return subscription.nextdate
+        return nextdate
     }
     
     var body: some View {

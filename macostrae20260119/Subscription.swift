@@ -5,7 +5,7 @@ struct Subscription: Identifiable, Codable {
     let name: String
     let site: String?
     let price: Int
-    let nextdate: String
+    let nextdate: String?
     let note: String?
     let account: String?
     let currency: String?

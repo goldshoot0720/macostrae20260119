@@ -9,8 +9,11 @@ class AppwriteService {
     private let collectionId = "6982182b002e6a6680b4"
     
     func fetchSubscriptions() async throws -> [Subscription] {
-        let urlString = "\(endpoint)/databases/\(databaseId)/collections/\(collectionId)/documents"
-        guard let url = URL(string: urlString) else {
+        var components = URLComponents(string: "\(endpoint)/databases/\(databaseId)/collections/\(collectionId)/documents")!
+        components.queryItems = [
+            URLQueryItem(name: "queries[]", value: "{\"method\":\"limit\",\"values\":[100]}")
+        ]
+        guard let url = components.url else {
             throw URLError(.badURL)
         }
         

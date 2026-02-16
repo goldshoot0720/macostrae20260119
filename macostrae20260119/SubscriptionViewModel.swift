@@ -20,8 +20,14 @@ final class SubscriptionViewModel: ObservableObject {
                 isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 let fallbackFormatter = ISO8601DateFormatter()
                 
-                let date1 = isoFormatter.date(from: sub1.nextdate) ?? fallbackFormatter.date(from: sub1.nextdate) ?? Date.distantFuture
-                let date2 = isoFormatter.date(from: sub2.nextdate) ?? fallbackFormatter.date(from: sub2.nextdate) ?? Date.distantFuture
+                let date1: Date = {
+                    guard let nd = sub1.nextdate else { return Date.distantFuture }
+                    return isoFormatter.date(from: nd) ?? fallbackFormatter.date(from: nd) ?? Date.distantFuture
+                }()
+                let date2: Date = {
+                    guard let nd = sub2.nextdate else { return Date.distantFuture }
+                    return isoFormatter.date(from: nd) ?? fallbackFormatter.date(from: nd) ?? Date.distantFuture
+                }()
                 
                 return date1 < date2
             }
@@ -41,13 +47,14 @@ final class SubscriptionViewModel: ObservableObject {
         let threeDaysLater = Calendar.current.date(byAdding: .day, value: 3, to: now)!
         
         return subscriptions.filter { sub in
+            guard let nextdate = sub.nextdate else { return false }
             // Handle Appwrite date format which might vary slightly
             // Try standard ISO8601 first
-            var date = dateFormatter.date(from: sub.nextdate)
+            var date = dateFormatter.date(from: nextdate)
             if date == nil {
                 // Fallback for format without fractional seconds if needed
                 let fallbackFormatter = ISO8601DateFormatter()
-                date = fallbackFormatter.date(from: sub.nextdate)
+                date = fallbackFormatter.date(from: nextdate)
             }
             
             guard let validDate = date else { return false }
