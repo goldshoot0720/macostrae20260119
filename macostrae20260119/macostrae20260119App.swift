@@ -49,11 +49,13 @@ struct macostrae20260119App: App {
                     }
                 }
         }
+        .defaultSize(width: 1480, height: 920)
 
         Window("原油監控", id: "oil-monitor") {
             CrudeOilMonitorView()
                 .environmentObject(crudeOilMonitor)
         }
+        .defaultSize(width: 1180, height: 820)
         
         MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
             SubscriptionsMenuBarView()

@@ -336,54 +336,57 @@ struct CrudeOilMonitorView: View {
             )
             .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("原油監控")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("原油監控")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
 
-                    Text("基於 gulfmerc.com 的 OQD Daily Marker Price，每天下午 1:00 自動抓取。")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.72))
-                }
-
-                HStack(alignment: .top, spacing: 18) {
-                    monitorMetric(title: "最新價格", value: crudeOilMonitor.latestPriceText, accent: Color.orange)
-                    monitorMetric(title: "Marker Date", value: crudeOilMonitor.latestMarkerDateText, accent: Color.yellow)
-                }
-
-                chartPanel
-
-                VStack(alignment: .leading, spacing: 10) {
-                    detailRow(label: "上次抓取", value: crudeOilMonitor.lastFetchedText)
-                    detailRow(label: "下次自動抓取", value: crudeOilMonitor.nextFetchText)
-                    detailRow(label: "來源", value: crudeOilMonitor.sourceLinkText)
-
-                    if let error = crudeOilMonitor.lastErrorMessage {
-                        detailRow(label: "狀態", value: error)
-                            .foregroundStyle(Color.red.opacity(0.88))
+                        Text("基於 gulfmerc.com 的 OQD Daily Marker Price，每天下午 1:00 自動抓取。")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.72))
                     }
-                }
 
-                HStack(spacing: 12) {
-                    Button {
-                        Task {
-                            await crudeOilMonitor.fetchLatestPrice(reason: .manual)
+                    HStack(alignment: .top, spacing: 18) {
+                        monitorMetric(title: "最新價格", value: crudeOilMonitor.latestPriceText, accent: Color.orange)
+                        monitorMetric(title: "Marker Date", value: crudeOilMonitor.latestMarkerDateText, accent: Color.yellow)
+                    }
+
+                    chartPanel
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        detailRow(label: "上次抓取", value: crudeOilMonitor.lastFetchedText)
+                        detailRow(label: "下次自動抓取", value: crudeOilMonitor.nextFetchText)
+                        detailRow(label: "來源", value: crudeOilMonitor.sourceLinkText)
+
+                        if let error = crudeOilMonitor.lastErrorMessage {
+                            detailRow(label: "狀態", value: error)
+                                .foregroundStyle(Color.red.opacity(0.88))
                         }
-                    } label: {
-                        Label(crudeOilMonitor.isFetching ? "抓取中..." : "立即抓取", systemImage: "arrow.trianglehead.clockwise")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(crudeOilMonitor.isFetching)
 
-                    Link("開啟來源網站", destination: URL(string: crudeOilMonitor.sourceLinkText)!)
-                        .buttonStyle(.bordered)
+                    HStack(spacing: 12) {
+                        Button {
+                            Task {
+                                await crudeOilMonitor.fetchLatestPrice(reason: .manual)
+                            }
+                        } label: {
+                            Label(crudeOilMonitor.isFetching ? "抓取中..." : "立即抓取", systemImage: "arrow.trianglehead.clockwise")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(crudeOilMonitor.isFetching)
+
+                        Link("開啟來源網站", destination: URL(string: crudeOilMonitor.sourceLinkText)!)
+                            .buttonStyle(.bordered)
+                    }
                 }
+                .padding(28)
+                .frame(maxWidth: 1100, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(28)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: 620, minHeight: 380)
+        .frame(minWidth: 760, minHeight: 620)
     }
 
     @ViewBuilder
