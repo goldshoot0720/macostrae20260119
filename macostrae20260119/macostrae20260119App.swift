@@ -26,10 +26,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 struct macostrae20260119App: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var crudeOilMonitor = CrudeOilMonitor.shared
+    @StateObject private var navigationState = AppNavigationState()
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainDashboardView()
+                .environmentObject(navigationState)
                 .environmentObject(crudeOilMonitor)
                 .onAppear {
                     // Step 4: Auto-start on boot
@@ -55,23 +57,24 @@ struct macostrae20260119App: App {
         
         MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
             SubscriptionsMenuBarView()
+                .environmentObject(navigationState)
         }
 
         MenuBarExtra("原油監控", systemImage: "barrel.fill") {
             OilMonitorMenuBarView()
+                .environmentObject(navigationState)
                 .environmentObject(crudeOilMonitor)
         }
     }
 }
 
 private struct SubscriptionsMenuBarView: View {
+    @EnvironmentObject private var navigationState: AppNavigationState
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Button("Open Subscriptions") {
-                NSApp.activate(ignoringOtherApps: true)
-                if let window = NSApp.windows.first {
-                    window.makeKeyAndOrderFront(nil)
-                }
+                navigationState.show(.subscriptions)
             }
 
             Divider()

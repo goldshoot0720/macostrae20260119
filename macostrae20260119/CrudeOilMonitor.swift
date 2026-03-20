@@ -342,6 +342,7 @@ struct CrudeOilMonitorView: View {
 }
 
 struct OilMonitorMenuBarView: View {
+    @EnvironmentObject private var navigationState: AppNavigationState
     @EnvironmentObject private var crudeOilMonitor: CrudeOilMonitor
     @Environment(\.openWindow) private var openWindow
 
@@ -364,6 +365,10 @@ struct OilMonitorMenuBarView: View {
             }
 
             Button("Open 原油監控") {
+                navigationState.show(.oilMonitor)
+            }
+
+            Button("Open 原油監控視窗") {
                 openWindow(id: "oil-monitor")
             }
 
