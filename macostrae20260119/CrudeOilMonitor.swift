@@ -341,21 +341,12 @@ struct CrudeOilMonitorView: View {
     }
 }
 
-struct MenuBarPanelView: View {
+struct OilMonitorMenuBarView: View {
     @EnvironmentObject private var crudeOilMonitor: CrudeOilMonitor
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button("Open Subscriptions") {
-                NSApp.activate(ignoringOtherApps: true)
-                if let window = NSApp.windows.first {
-                    window.makeKeyAndOrderFront(nil)
-                }
-            }
-
-            Divider()
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("原油監控")
                     .font(.headline)

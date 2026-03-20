@@ -54,8 +54,33 @@ struct macostrae20260119App: App {
         }
         
         MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
-            MenuBarPanelView()
+            SubscriptionsMenuBarView()
+        }
+
+        MenuBarExtra("原油監控", systemImage: "barrel.fill") {
+            OilMonitorMenuBarView()
                 .environmentObject(crudeOilMonitor)
         }
+    }
+}
+
+private struct SubscriptionsMenuBarView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button("Open Subscriptions") {
+                NSApp.activate(ignoringOtherApps: true)
+                if let window = NSApp.windows.first {
+                    window.makeKeyAndOrderFront(nil)
+                }
+            }
+
+            Divider()
+
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+        .padding(6)
+        .frame(width: 220)
     }
 }
