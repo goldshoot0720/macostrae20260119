@@ -5,6 +5,9 @@ import ServiceManagement
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+        Task { @MainActor in
+            CrudeOilMonitor.shared.start()
+        }
     }
     
     // Show notification even when app is in foreground
@@ -22,10 +25,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 @main
 struct macostrae20260119App: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var crudeOilMonitor = CrudeOilMonitor.shared
     
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(crudeOilMonitor)
                 .onAppear {
                     // Step 4: Auto-start on boot
                     // Note: This requires the app to be signed and possibly in /Applications to work reliably in production
@@ -42,20 +47,15 @@ struct macostrae20260119App: App {
                     }
                 }
         }
+
+        Window("原油監控", id: "oil-monitor") {
+            CrudeOilMonitorView()
+                .environmentObject(crudeOilMonitor)
+        }
         
         MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
-            Button("Open Subscriptions") {
-                NSApp.activate(ignoringOtherApps: true)
-                // If window is closed, this might need more logic in some SwiftUI versions, 
-                // but usually activate works if not LSUIElement=YES
-                if let window = NSApp.windows.first {
-                    window.makeKeyAndOrderFront(nil)
-                }
-            }
-            Divider()
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
+            MenuBarPanelView()
+                .environmentObject(crudeOilMonitor)
         }
     }
 }
