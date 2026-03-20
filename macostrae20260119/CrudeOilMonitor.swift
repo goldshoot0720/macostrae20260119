@@ -1,4 +1,5 @@
 import Combine
+import Charts
 import Foundation
 import SwiftUI
 
@@ -7,6 +8,15 @@ struct CrudeOilSnapshot: Codable, Equatable {
     let markerDateText: String
     let sourceURL: String
     let fetchedAt: Date
+}
+
+struct CrudeOilHistoryPoint: Codable, Equatable, Identifiable {
+    let markerDate: Date
+    let price: Double
+    let markerDateText: String
+    let fetchedAt: Date
+
+    var id: TimeInterval { markerDate.timeIntervalSince1970 }
 }
 
 enum CrudeOilFetchReason {
@@ -34,12 +44,14 @@ final class CrudeOilMonitor: ObservableObject {
     static let shared = CrudeOilMonitor()
 
     @Published private(set) var latestSnapshot: CrudeOilSnapshot?
+    @Published private(set) var history: [CrudeOilHistoryPoint] = []
     @Published private(set) var isFetching = false
     @Published private(set) var nextFetchAt: Date?
     @Published private(set) var lastErrorMessage: String?
 
     private let sourceURL = URL(string: "https://www.gulfmerc.com/")!
     private let storageKey = "crudeOilSnapshot"
+    private let historyStorageKey = "crudeOilSnapshotHistory"
     private var timer: Timer?
     private var hasStarted = false
 
@@ -48,6 +60,7 @@ final class CrudeOilMonitor: ObservableObject {
         hasStarted = true
 
         loadPersistedSnapshot()
+        loadPersistedHistory()
         scheduleNextFetch()
 
         Task {
@@ -66,6 +79,7 @@ final class CrudeOilMonitor: ObservableObject {
         do {
             let snapshot = try await requestSnapshot()
             latestSnapshot = snapshot
+            appendHistoryIfNeeded(snapshot)
             lastErrorMessage = nil
             persist(snapshot)
 
@@ -98,6 +112,14 @@ final class CrudeOilMonitor: ObservableObject {
     var nextFetchText: String {
         guard let nextFetchAt else { return "未排程" }
         return Self.timestampFormatter.string(from: nextFetchAt)
+    }
+
+    var chartData: [CrudeOilHistoryPoint] {
+        history.sorted { $0.markerDate < $1.markerDate }
+    }
+
+    var latestPriceDouble: Double? {
+        latestSnapshot.flatMap { Double($0.price) }
     }
 
     private func fetchIfNeededOnLaunch(now: Date = Date()) async {
@@ -174,6 +196,32 @@ final class CrudeOilMonitor: ObservableObject {
         throw CrudeOilMonitorError.unableToParse
     }
 
+    private func appendHistoryIfNeeded(_ snapshot: CrudeOilSnapshot) {
+        guard
+            let markerDate = Self.primaryMarkerDateFormatter.date(from: snapshot.markerDateText)
+            ?? Self.fallbackMarkerDateFormatter.date(from: snapshot.markerDateText),
+            let price = Double(snapshot.price)
+        else {
+            return
+        }
+
+        let newPoint = CrudeOilHistoryPoint(
+            markerDate: markerDate,
+            price: price,
+            markerDateText: snapshot.markerDateText,
+            fetchedAt: snapshot.fetchedAt
+        )
+
+        if let existingIndex = history.firstIndex(where: { Calendar.current.isDate($0.markerDate, inSameDayAs: markerDate) }) {
+            history[existingIndex] = newPoint
+        } else {
+            history.append(newPoint)
+        }
+
+        history.sort { $0.markerDate < $1.markerDate }
+        persistHistory()
+    }
+
     private func firstMatch(pattern: String, in text: String) -> [String]? {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return nil
@@ -235,10 +283,40 @@ final class CrudeOilMonitor: ObservableObject {
         UserDefaults.standard.set(data, forKey: storageKey)
     }
 
+    private func loadPersistedHistory() {
+        guard
+            let data = UserDefaults.standard.data(forKey: historyStorageKey),
+            let history = try? JSONDecoder().decode([CrudeOilHistoryPoint].self, from: data)
+        else {
+            return
+        }
+
+        self.history = history.sorted { $0.markerDate < $1.markerDate }
+    }
+
+    private func persistHistory() {
+        guard let data = try? JSONEncoder().encode(history) else { return }
+        UserDefaults.standard.set(data, forKey: historyStorageKey)
+    }
+
     private static let timestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let primaryMarkerDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMMM d, yyyy"
+        return formatter
+    }()
+
+    private static let fallbackMarkerDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "d MMM, yyyy"
         return formatter
     }()
 }
@@ -274,6 +352,8 @@ struct CrudeOilMonitorView: View {
                     monitorMetric(title: "Marker Date", value: crudeOilMonitor.latestMarkerDateText, accent: Color.yellow)
                 }
 
+                chartPanel
+
                 VStack(alignment: .leading, spacing: 10) {
                     detailRow(label: "上次抓取", value: crudeOilMonitor.lastFetchedText)
                     detailRow(label: "下次自動抓取", value: crudeOilMonitor.nextFetchText)
@@ -304,6 +384,95 @@ struct CrudeOilMonitorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 620, minHeight: 380)
+    }
+
+    @ViewBuilder
+    private var chartPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("OQD 價格走勢")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Text("歷史點數 \(crudeOilMonitor.chartData.count)")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.6))
+            }
+
+            if crudeOilMonitor.chartData.isEmpty {
+                Text("目前還沒有歷史資料。從現在開始，每次成功抓取都會累積到圖表。")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.72))
+                    .frame(maxWidth: .infinity, minHeight: 180, alignment: .center)
+            } else {
+                Chart(crudeOilMonitor.chartData) { point in
+                    AreaMark(
+                        x: .value("Date", point.markerDate),
+                        y: .value("Price", point.price)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.orange.opacity(0.42), Color.orange.opacity(0.04)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                    LineMark(
+                        x: .value("Date", point.markerDate),
+                        y: .value("Price", point.price)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Color.orange)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+
+                    PointMark(
+                        x: .value("Date", point.markerDate),
+                        y: .value("Price", point.price)
+                    )
+                    .foregroundStyle(Color.yellow)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: min(6, max(2, crudeOilMonitor.chartData.count)))) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [3, 5]))
+                            .foregroundStyle(Color.white.opacity(0.12))
+                        AxisTick()
+                            .foregroundStyle(Color.white.opacity(0.4))
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                            .foregroundStyle(Color.white.opacity(0.72))
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [4, 5]))
+                            .foregroundStyle(Color.white.opacity(0.10))
+                        AxisTick()
+                            .foregroundStyle(Color.white.opacity(0.4))
+                        AxisValueLabel()
+                            .foregroundStyle(Color.white.opacity(0.72))
+                    }
+                }
+                .chartYScale(domain: chartDomain)
+                .frame(height: 220)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        }
+    }
+
+    private var chartDomain: ClosedRange<Double> {
+        let prices = crudeOilMonitor.chartData.map(\.price)
+        let minPrice = prices.min() ?? 0
+        let maxPrice = prices.max() ?? 1
+        let padding = max(1, (maxPrice - minPrice) * 0.15)
+        return (minPrice - padding)...(maxPrice + padding)
     }
 
     private func monitorMetric(title: String, value: String, accent: Color) -> some View {
