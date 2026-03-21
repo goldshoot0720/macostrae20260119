@@ -3,6 +3,7 @@
 xcuserdata/
 DerivedData/
 .build/
+dist/
 .swiftpm/
 *.pbxuser
 *.mode1v3
