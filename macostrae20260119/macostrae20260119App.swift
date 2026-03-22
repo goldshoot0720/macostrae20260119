@@ -2,11 +2,29 @@ import SwiftUI
 import UserNotifications
 import ServiceManagement
 
+private enum LaunchMode {
+    static let launchAtLoginArgument = "--launch-at-login"
+
+    static var isLaunchAtLogin: Bool {
+        ProcessInfo.processInfo.arguments.contains(launchAtLoginArgument)
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
         Task { @MainActor in
             CrudeOilMonitor.shared.start()
+        }
+
+        if LaunchMode.isLaunchAtLogin {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                NSApp.windows.forEach { window in
+                    window.miniaturize(nil)
+                    window.orderBack(nil)
+                }
+                NSApp.hide(nil)
+            }
         }
     }
     
