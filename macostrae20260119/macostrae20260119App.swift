@@ -48,12 +48,14 @@ struct macostrae20260119App: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var crudeOilMonitor = CrudeOilMonitor.shared
     @StateObject private var navigationState = AppNavigationState()
+    @StateObject private var voiceCommandCenter = VoiceCommandCenter()
     
     var body: some Scene {
         WindowGroup {
             MainDashboardView()
                 .environmentObject(navigationState)
                 .environmentObject(crudeOilMonitor)
+                .environmentObject(voiceCommandCenter)
                 .onAppear {
                     // Step 4: Auto-start on boot
                     // Note: This requires the app to be signed and possibly in /Applications to work reliably in production
@@ -81,18 +83,26 @@ struct macostrae20260119App: App {
         MenuBarExtra("Subscriptions", systemImage: "calendar.badge.clock") {
             SubscriptionsMenuBarView()
                 .environmentObject(navigationState)
+                .environmentObject(voiceCommandCenter)
         }
 
         MenuBarExtra("原油監控", systemImage: "barrel.fill") {
             OilMonitorMenuBarView()
                 .environmentObject(navigationState)
                 .environmentObject(crudeOilMonitor)
+                .environmentObject(voiceCommandCenter)
+        }
+
+        MenuBarExtra("語音輸入", systemImage: voiceCommandCenter.isListening ? "mic.fill" : "mic") {
+            VoiceCommandMenuBarView()
+                .environmentObject(voiceCommandCenter)
         }
     }
 }
 
 private struct SubscriptionsMenuBarView: View {
     @EnvironmentObject private var navigationState: AppNavigationState
+    @EnvironmentObject private var voiceCommandCenter: VoiceCommandCenter
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -102,6 +112,12 @@ private struct SubscriptionsMenuBarView: View {
                 } label: {
                     Label(section.title, systemImage: section.systemImage)
                 }
+            }
+
+            Divider()
+
+            Button(voiceCommandCenter.isListening ? "停止語音輸入" : "開始語音輸入") {
+                voiceCommandCenter.toggleListening()
             }
 
             Divider()

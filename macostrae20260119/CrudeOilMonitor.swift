@@ -516,6 +516,7 @@ struct CrudeOilMonitorView: View {
 struct OilMonitorMenuBarView: View {
     @EnvironmentObject private var navigationState: AppNavigationState
     @EnvironmentObject private var crudeOilMonitor: CrudeOilMonitor
+    @EnvironmentObject private var voiceCommandCenter: VoiceCommandCenter
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -552,6 +553,12 @@ struct OilMonitorMenuBarView: View {
             .disabled(crudeOilMonitor.isFetching)
 
             Link("Open gulfmerc.com", destination: URL(string: crudeOilMonitor.sourceLinkText)!)
+
+            Divider()
+
+            Button(voiceCommandCenter.isListening ? "停止語音輸入" : "開始語音輸入") {
+                voiceCommandCenter.toggleListening()
+            }
 
             Divider()
 

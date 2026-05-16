@@ -53,6 +53,9 @@ struct ContentView: View {
         .task {
             await loadInitialData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .voiceRefreshSubscriptions)) { _ in
+            reloadSubscriptions()
+        }
     }
 
     @ViewBuilder
