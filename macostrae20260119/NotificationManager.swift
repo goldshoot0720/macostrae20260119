@@ -61,10 +61,10 @@ class NotificationManager {
             for dayOffset in [3, 2, 1] {
                 guard let triggerDate = Calendar.current.date(byAdding: .day, value: -dayOffset, to: validDate) else { continue }
                 
-                // Set time to 6 AM
+                // Set reminder time to 5:33 AM.
                 var triggerComponents = Calendar.current.dateComponents([.year, .month, .day], from: triggerDate)
-                triggerComponents.hour = 6
-                triggerComponents.minute = 0
+                triggerComponents.hour = 5
+                triggerComponents.minute = 33
                 triggerComponents.second = 0
                 
                 guard let fireDate = Calendar.current.date(from: triggerComponents) else { continue }
